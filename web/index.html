@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Video to Text · Local Transcriber</title>
+  <style>
+    :root { font-family: "Segoe UI", Tahoma, sans-serif; background: #0b1222; color: #e8eefb; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: radial-gradient(ellipse at 85% -5%,#173153 0,transparent 48%),#0b1222; min-height: 100vh; }
+    main { max-width: 1050px; padding: 35px 22px 80px; margin: auto; }
+    h1 { font-size: clamp(30px,5vw,44px); letter-spacing: -1px; margin: 8px 0 6px; }
+    h2 { font-size: 18px; margin: 0 0 18px; }
+    p { line-height: 1.65; }
+    .muted { color: #94a5c1; }
+    .tag { display: inline-block; font-size: 12px; letter-spacing: 1.5px; font-weight: 700; color: #55d5de; text-transform: uppercase; }
+    .lead { margin: 5px 0 28px; max-width: 660px; }
+    .panel { background: #111e32; border: 1px solid #273850; border-radius: 18px; padding: 25px; box-shadow: 0 16px 35px #0003; }
+    .layout { display: grid; grid-template-columns: 1.2fr .8fr; gap: 18px; align-items: start; }
+    .stack { display: grid; gap: 18px; }
+    .drop { display: flex; flex-direction: column; min-height: 170px; align-items: center; justify-content: center; text-align: center; border: 2px dashed #466281; border-radius: 14px; padding: 20px; cursor: pointer; background: #14243a; transition: border-color .15s, background .15s; }
+    .drop:hover, .drop.over { border-color: #50d3df; background: #1a3148; }
+    .drop strong { color: #eafaff; font-size: 18px; }
+    .drop span { font-size: 13px; color: #a1afc4; margin-top: 9px; overflow-wrap: anywhere; }
+    .drop input { display: none; }
+    .file-icon { font-size: 35px; margin-bottom: 12px; }
+    .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+    label.field { font-size: 13px; color: #b6c7df; display: flex; flex-direction: column; gap: 7px; }
+    select, input[type="number"] { width: 100%; border: 1px solid #3b4e67; border-radius: 9px; background: #0c192c; color: #f5f8fe; padding: 11px 12px; font: inherit; font-size: 14px; }
+    select:focus, input:focus { outline: 2px solid #43c9d6; }
+    .switch { display: flex; align-items: center; gap: 9px; margin-top: 17px; color: #becde2; font-size: 13px; }
+    .switch input { width: 16px; height: 16px; accent-color: #4fd2dd; }
+    button { font: inherit; border-radius: 10px; cursor: pointer; padding: 12px 16px; font-weight: 650; }
+    button.primary { background: #4bd0dd; color: #041722; border: none; width: 100%; margin-top: 23px; font-size: 15px; }
+    button.primary:hover:not(:disabled) { background: #71e4e9; }
+    button:disabled { cursor: not-allowed; opacity: .45; }
+    button.secondary { background: #1b2b41; color: #e5edfa; border: 1px solid #41536b; }
+    .eyebrow { color: #91a3bd; text-transform: uppercase; letter-spacing: 1px; font-size: 11px; font-weight: bold; }
+    .gpu-line { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+    .pill { border-radius: 50px; padding: 5px 9px; font-size: 11px; font-weight: 700; background: #2e3549; color: #e8b46b; white-space: nowrap; }
+    .pill.good { color: #6ce3ad; background: #153f39; }
+    .gpu-name { font-size: 16px; font-weight: 650; margin: 9px 0 4px; }
+    .small { font-size: 12px; line-height: 1.65; }
+    .jobhead { display: flex; justify-content: space-between; align-items: center; gap: 15px; }
+    .progress { background: #23354b; border-radius: 50px; overflow: hidden; height: 14px; margin: 17px 0 10px; }
+    .progress > div { height: 100%; width: 0%; background: linear-gradient(90deg,#29a5ce,#56e4c4); transition: width .35s; }
+    .progress-label { display: flex; justify-content: space-between; font-size: 13px; color: #afc1d6; gap: 12px; }
+    .metrics { display: grid; grid-template-columns: repeat(3,1fr); gap: 9px; margin-top: 22px; }
+    .metric { padding: 14px 10px; border-radius: 11px; background: #172940; min-height: 88px; }
+    .metric b { font-size: 20px; display: block; margin: 6px 0; overflow-wrap: anywhere; }
+    .metric span { color: #a6b9d0; font-size: 11px; }
+    #preview { white-space: pre-wrap; overflow-wrap: anywhere; color: #d7e5f6; background: #0d192b; padding: 15px; border: 1px solid #2b3e57; border-radius: 10px; min-height: 70px; }
+    #feedback { border-radius: 10px; padding: 12px 14px; color: #facac6; background: #462729; margin-top: 15px; display: none; white-space: pre-wrap; overflow-wrap: anywhere; }
+    #downloads { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 17px; }
+    #downloads a { color: #d5faff; text-decoration: none; background: #24536a; padding: 10px 13px; border-radius: 9px; font-weight: 650; }
+    .hidden { display: none !important; }
+    .foot { padding-top: 28px; text-align: center; color: #8294ae; font-size: 12px; }
+    @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
+    @media (max-width: 470px) { .fields { grid-template-columns: 1fr; } .panel { padding: 17px; } .metrics { grid-template-columns: 1fr 1fr; } }
+  </style>
+</head>
+<body>
+<main>
+  <div class="tag">Private • Local • Faster-Whisper</div>
+  <h1>Video to Text</h1>
+  <p class="lead muted">แปลงวิดีโอหรือเสียงเป็นข้อความภาษาไทยบนคอมของคุณเอง พร้อมดูความคืบหน้า เวลาที่ใช้ และเวลาคาดว่าจะเสร็จ</p>
+  <div class="layout">
+    <section class="panel">
+      <h2>เริ่มแปลงเสียง</h2>
+      <label class="drop" id="drop">
+        <input type="file" id="file" accept="video/*,audio/*,.mkv,.flac,.opus,.m4a">
+        <span class="file-icon">▣</span>
+        <strong id="file-title">คลิกเลือกไฟล์ หรือลากไฟล์มาวาง</strong>
+        <span id="file-subtitle">MP4, MKV, MOV, MP3, WAV และอื่น ๆ • สูงสุด 10 GiB</span>
+      </label>
+      <div class="fields">
+        <label class="field">โมเดล
+          <select id="model">
+            <option value="tiny">Tiny — เร็วสุด</option>
+            <option value="base">Base — เร็ว</option>
+            <option value="small" selected>Small — สมดุล</option>
+            <option value="medium">Medium — แม่นยำขึ้น</option>
+            <option value="large-v3">Large-v3 — ใช้ทรัพยากรมาก</option>
+            <option value="turbo">Turbo — เหมาะกับ GPU</option>
+          </select>
+        </label>
+        <label class="field">ภาษาเสียงพูด
+          <select id="language">
+            <option value="th" selected>ไทย</option>
+            <option value="en">English</option>
+            <option value="ja">日本語</option>
+            <option value="zh">中文</option>
+            <option value="auto">ตรวจภาษาอัตโนมัติ</option>
+          </select>
+        </label>
+        <label class="field">อุปกรณ์ประมวลผล
+          <select id="device">
+            <option value="auto" selected>Auto — GPU ถ้าพร้อม ไม่งั้น CPU</option>
+            <option value="cpu">CPU</option>
+            <option value="cuda" id="cuda-option">NVIDIA GPU (CUDA)</option>
+          </select>
+        </label>
+        <label class="field">Beam size
+          <select id="beam">
+            <option value="1" selected>1 — เร็วสุด</option>
+            <option value="3">3 — สมดุล</option>
+            <option value="5">5 — เน้นความแม่นยำ</option>
+          </select>
+        </label>
+        <label class="field">CPU threads (0 = อัตโนมัติ)
+          <input id="threads" type="number" min="0" max="128" value="0">
+        </label>
+      </div>
+      <label class="switch"><input type="checkbox" id="vad" checked> กรองช่วงเสียงเงียบด้วย VAD (แนะนำ)</label>
+      <label class="switch"><input type="checkbox" id="words"> เพิ่ม Timestamp ระดับคำ (ช้าลง)</label>
+      <button class="primary" id="start" disabled>เริ่มถอดเสียง</button>
+      <div id="feedback" role="alert"></div>
+    </section>
+    <div class="stack">
+      <section class="panel">
+        <div class="gpu-line">
+          <h2 style="margin:0">สถานะฮาร์ดแวร์</h2>
+          <span class="pill" id="gpu-pill">กำลังตรวจสอบ</span>
+        </div>
+        <div class="gpu-name" id="gpu-name">กำลังอ่านข้อมูลเครื่อง...</div>
+        <div class="muted small" id="gpu-detail">กรุณารอสักครู่</div>
+        <p class="muted small" style="margin-bottom:0">หากยังไม่ได้ติดตั้ง CUDA 12/cuDNN 9 สามารถใช้ CPU ได้ทันทีโดยไม่ต้องลง GPU dependencies</p>
+      </section>
+      <section class="panel" id="job-panel" aria-live="polite">
+        <div class="jobhead">
+          <h2 style="margin:0">สถานะการถอดเสียง</h2>
+          <button class="secondary hidden" id="cancel">ยกเลิก</button>
+        </div>
+        <p class="muted small" id="status">ยังไม่มีงานที่กำลังประมวลผล</p>
+        <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress"><div id="progress-fill"></div></div>
+        <div class="progress-label"><span id="phase">รอไฟล์</span><strong id="percent">0%</strong></div>
+        <div class="metrics">
+          <div class="metric"><span>เวลาที่ใช้</span><b id="elapsed">--:--</b></div>
+          <div class="metric"><span>คาดว่าเหลือ</span><b id="eta">--:--</b></div>
+          <div class="metric"><span>ช่วงเสียงที่ถอดได้</span><b id="segments">0</b></div>
+        </div>
+        <div class="small muted" style="margin-top:15px" id="audio-position">ตำแหน่งเสียง: --:-- / --:--</div>
+        <h2 style="margin:22px 0 10px;font-size:15px">ข้อความล่าสุด</h2>
+        <div id="preview" class="small muted">ข้อความที่ถอดได้จะแสดงที่นี่</div>
+        <div id="downloads"></div>
+        <div class="muted small" style="margin-top:14px">หมายเหตุ: ETA เป็นค่าประมาณจากความเร็วที่ถอดเสียงจริง จะแสดงหลังเริ่มประมวลผลไปช่วงหนึ่ง การโหลดโมเดลครั้งแรกยังประเมินเวลาไม่ได้</div>
+      </section>
+    </div>
+  </div>
+  <div class="foot">รันเฉพาะบนเครื่องของคุณ • วิดีโออัปโหลดไว้ในเซิร์ฟเวอร์ localhost และลบไฟล์ต้นฉบับที่อัปโหลดหลังจบงาน • ผลลัพธ์เก็บใน .work</div>
+</main>
+<script>
+(function () {
+  "use strict";
+  const el = id => document.getElementById(id);
+  const fields = ["model", "language", "device", "beam", "threads", "vad", "words"];
+  let file = null, upload = null, jobId = null, timer = null, uploading = false;
+  let uploadStarted = 0, abortRequested = false;
+  const terminal = ["completed", "failed", "cancelled"];
+  const statusNames = {
+    uploading: "กำลังอัปโหลด", queued: "รอเริ่มทำงาน",
+    running: "กำลังประมวลผล", cancelling: "กำลังยกเลิก",
+    completed: "สำเร็จ", failed: "เกิดข้อผิดพลาด", cancelled: "ยกเลิกแล้ว"
+  };
+  const stageNames = {
+    uploading: "อัปโหลด", queued: "เตรียมทำงาน", loading_model: "โหลดโมเดล",
+    transcribing: "ถอดเสียง", saving: "บันทึกผลลัพธ์",
+    completed: "เสร็จแล้ว", cancelled: "ยกเลิก", failed: "ผิดพลาด"
+  };
+
+  function duration(seconds) {
+    if (seconds == null || !Number.isFinite(Number(seconds))) return "--:--";
+    const n = Math.max(0, Math.round(Number(seconds)));
+    const h = Math.floor(n / 3600), m = Math.floor((n % 3600) / 60), s = n % 60;
+    return h ? [h, m, s].map((x,i) => i ? String(x).padStart(2,"0") : x).join(":")
+             : String(m).padStart(2,"0") + ":" + String(s).padStart(2,"0");
+  }
+
+  function feedback(message) {
+    el("feedback").textContent = message || "";
+    el("feedback").style.display = message ? "block" : "none";
+  }
+
+  function selectFile(selected) {
+    file = selected || null;
+    el("file-title").textContent = file ? file.name : "คลิกเลือกไฟล์ หรือลากไฟล์มาวาง";
+    el("file-subtitle").textContent = file
+      ? (file.size / 1024 / 1024).toFixed(1) + " MB"
+      : "MP4, MKV, MOV, MP3, WAV และอื่น ๆ • สูงสุด 10 GiB";
+    el("start").disabled = !file || uploading || !!jobId;
+  }
+
+  async function systemInfo() {
+    try {
+      const response = await fetch("/api/system");
+      if (!response.ok) throw new Error("เชื่อมต่อ API ไม่ได้");
+      const data = await response.json(), gpu = data.gpu;
+      el("gpu-pill").textContent = gpu.available ? "CUDA พร้อม" : "ใช้ CPU ได้";
+      el("gpu-pill").classList.toggle("good", !!gpu.available);
+      el("gpu-name").textContent = gpu.name || "ยังไม่พบชื่อการ์ด NVIDIA";
+      el("gpu-detail").textContent = gpu.reason || "";
+      el("cuda-option").disabled = !gpu.available;
+      if (!gpu.available && el("device").value === "cuda") el("device").value = "auto";
+    } catch (error) { el("gpu-detail").textContent = String(error.message || error); }
+  }
+
+  function busy(flag) {
+    uploading = flag;
+    el("start").disabled = flag || !file || !!jobId;
+    fields.forEach(id => el(id).disabled = flag || !!jobId);
+    el("file").disabled = flag || !!jobId;
+  }
+
+  function draw(job) {
+    el("status").textContent = (statusNames[job.status] || job.status) +
+      " · " + job.filename + (job.device ? " · " + job.device.toUpperCase() : "");
+    el("phase").textContent = (stageNames[job.stage] || job.stage) +
+      (job.message ? " · " + job.message : "");
+    const p = Math.max(0, Math.min(100, Number(job.progress) || 0));
+    el("progress-fill").style.width = p + "%";
+    el("progress").setAttribute("aria-valuenow", String(p));
+    el("percent").textContent = p.toFixed(1) + "%";
+    el("elapsed").textContent = duration(job.elapsed_seconds);
+    el("eta").textContent = job.eta_seconds == null && !terminal.includes(job.status)
+      ? "คำนวณ..." : duration(job.eta_seconds);
+    el("segments").textContent = String(job.segment_count || 0);
+    el("audio-position").textContent =
+      "ตำแหน่งเสียง: " + duration(job.processed_seconds) + " / " + duration(job.duration_seconds);
+    if (job.last_text) el("preview").textContent = job.last_text;
+    el("cancel").classList.toggle("hidden", terminal.includes(job.status) || job.status === "cancelling");
+    const container = el("downloads");
+    container.replaceChildren();
+    if (job.downloads) {
+      ["txt", "json", "srt"].forEach(kind => {
+        if (!job.downloads[kind]) return;
+        const link = document.createElement("a");
+        link.href = job.downloads[kind];
+        link.textContent = "ดาวน์โหลด " + kind.toUpperCase();
+        container.append(link);
+      });
+    }
+    if (job.error) feedback(job.error);
+    if (terminal.includes(job.status)) {
+      stopPolling();
+      jobId = null;
+      sessionStorage.removeItem("transcriptionJob");
+      busy(false);
+    }
+  }
+
+  function stopPolling() { if (timer) clearInterval(timer); timer = null; }
+  async function poll() {
+    if (!jobId) return;
+    try {
+      const response = await fetch("/api/jobs/" + jobId, {cache:"no-store"});
+      if (!response.ok) throw new Error("ไม่พบงานนี้ในเซิร์ฟเวอร์ อาจมีการรีสตาร์ต");
+      draw(await response.json());
+    } catch (error) {
+      feedback(String(error.message || error));
+      stopPolling(); jobId = null; sessionStorage.removeItem("transcriptionJob"); busy(false);
+    }
+  }
+  function track(id) {
+    jobId = id;
+    sessionStorage.setItem("transcriptionJob", id);
+    busy(true);
+    stopPolling();
+    poll();
+    timer = setInterval(poll, 1500);
+  }
+
+  el("file").addEventListener("change", event => selectFile(event.target.files[0]));
+  const drop = el("drop");
+  ["dragenter", "dragover"].forEach(eventName =>
+    drop.addEventListener(eventName, event => { event.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave", "drop"].forEach(eventName =>
+    drop.addEventListener(eventName, event => { event.preventDefault(); drop.classList.remove("over"); }));
+  drop.addEventListener("drop", event => {
+    if (!uploading && !jobId) selectFile(event.dataTransfer.files[0]);
+  });
+
+  el("start").addEventListener("click", () => {
+    if (!file || uploading || jobId) return;
+    if (file.size > 10 * 1024 ** 3) return feedback("ไฟล์ต้องไม่เกิน 10 GiB");
+    feedback(""); abortRequested = false; uploadStarted = Date.now(); busy(true);
+    el("downloads").replaceChildren();
+    el("preview").textContent = "ข้อความที่ถอดได้จะแสดงที่นี่";
+    el("status").textContent = "กำลังอัปโหลด " + file.name;
+    el("phase").textContent = "กำลังส่งไฟล์ไปยัง localhost";
+    el("cancel").classList.remove("hidden");
+    const params = new URLSearchParams({
+      model:el("model").value, language:el("language").value,
+      device:el("device").value, beam_size:el("beam").value,
+      cpu_threads:el("threads").value || "0",
+      vad:String(el("vad").checked), words:String(el("words").checked)
+    });
+    const request = new XMLHttpRequest();
+    upload = request;
+    request.open("POST", "/api/upload?" + params.toString());
+    request.setRequestHeader("Content-Type","application/octet-stream");
+    request.setRequestHeader("X-File-Name",encodeURIComponent(file.name));
+    request.upload.onprogress = event => {
+      if (!event.lengthComputable) return;
+      const percent = Math.min(100, event.loaded / event.total * 100);
+      el("progress-fill").style.width = percent + "%";
+      el("progress").setAttribute("aria-valuenow", String(percent));
+      el("percent").textContent = percent.toFixed(1) + "%";
+      el("elapsed").textContent = duration((Date.now() - uploadStarted) / 1000);
+      el("phase").textContent = "กำลังอัปโหลด (ยังไม่เริ่มถอดเสียง)";
+    };
+    request.onload = () => {
+      upload = null;
+      let data = {};
+      try { data = JSON.parse(request.responseText); } catch (_) {}
+      if (request.status === 202 && data.id) track(data.id);
+      else { busy(false); el("cancel").classList.add("hidden"); feedback(data.error || "อัปโหลดไม่สำเร็จ"); }
+    };
+    request.onerror = () => {
+      upload = null; busy(false); el("cancel").classList.add("hidden"); feedback("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้");
+    };
+    request.onabort = () => {
+      upload = null; busy(false); el("cancel").classList.add("hidden");
+      el("status").textContent = "ยกเลิกการอัปโหลดแล้ว";
+      if (!abortRequested) feedback("การอัปโหลดถูกยกเลิก");
+    };
+    request.send(file);
+  });
+
+  el("cancel").addEventListener("click", async () => {
+    if (upload) {
+      abortRequested = true;
+      upload.abort();
+      return;
+    }
+    if (!jobId) return;
+    try {
+      const response = await fetch("/api/jobs/" + jobId + "/cancel", {method:"POST"});
+      if (!response.ok) throw new Error("ยกเลิกงานไม่สำเร็จ");
+      draw(await response.json());
+    } catch (error) { feedback(String(error.message || error)); }
+  });
+
+  systemInfo();
+  const previousId = sessionStorage.getItem("transcriptionJob");
+  if (previousId) track(previousId);
+})();
+</script>
+</body>
+</html>
