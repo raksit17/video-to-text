@@ -39,6 +39,25 @@ The first time you use a Whisper model, it is downloaded to the local Hugging Fa
 
 NVIDIA GPU inference with recent faster-whisper/CTranslate2 requires CUDA 12 cuBLAS and cuDNN 9 for CUDA 12. An NVIDIA driver by itself does not supply all the required DLLs. The error "cublas64_12.dll is not found" means a runtime library is not loadable.
 
+### Option A — Windows pip packages (recommended for this repo)
+
+On Windows, use NVIDIA's official CUDA runtime wheels in the project's .venv:
+
+    .\.venv\Scripts\python.exe -m pip install -r requirements-gpu.txt
+
+This downloads roughly 1.3 GB of CUDA libraries. The app automatically adds the
+wheel DLL directories in site-packages/nvidia/{cublas,cuda_runtime,cudnn}/bin
+to the running Python process search path. No global PATH edits are required
+for this method. Open a new terminal after installation if an older server is running.
+
+Verify:
+
+    .\.venv\Scripts\python.exe video_transcriber.py --check-gpu
+
+The result should report available: true. The Web UI will then enable CUDA.
+
+### Option B — System-wide Toolkit
+
 1. Run nvidia-smi and confirm Windows can see your NVIDIA GPU.
 2. Install matching CUDA 12 libraries and cuDNN 9 from NVIDIA, and add directories containing their DLLs (typically bin directories) to PATH.
 3. Open a fresh PowerShell window.
