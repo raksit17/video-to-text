@@ -34,8 +34,51 @@ def timestamp(seconds: float, *, subtitle: bool = False) -> str:
     return f"{hours:02}:{minutes:02}:{secs:02}{separator}{millis:03}"
 
 
+_DLL_DIRECTORY_HANDLES: list[Any] = []
+
+
+def enable_windows_cuda_wheels() -> list[str]:
+    """Expose pip-installed NVIDIA CUDA wheels to native Windows DLL loaders.
+
+    Windows CUDA wheels place DLLs under site-packages/nvidia/<package>/bin,
+    outside PATH. CTranslate2 can use LoadLibrary to resolve them, so both PATH
+    and the Python DLL search directories must be updated before GPU inference.
+    """
+    if sys.platform != "win32":
+        return []
+
+    import sysconfig
+
+    root = Path(sysconfig.get_paths()["purelib"]) / "nvidia"
+    dirs = [
+        root / package / "bin"
+        for package in ("cublas", "cuda_runtime", "cudnn")
+        if (root / package / "bin").is_dir()
+    ]
+    paths = [str(directory) for directory in dirs]
+    if not paths:
+        return []
+
+    existing = os.environ.get("PATH", "")
+    already = {path.casefold() for path in existing.split(os.pathsep)}
+    missing = [path for path in paths if path.casefold() not in already]
+    if missing:
+        os.environ["PATH"] = os.pathsep.join(missing + [existing])
+
+    # Keep handles alive; releasing one removes its directory from DLL search.
+    add_directory = getattr(os, "add_dll_directory", None)
+    if add_directory and not _DLL_DIRECTORY_HANDLES:
+        for path in paths:
+            try:
+                _DLL_DIRECTORY_HANDLES.append(add_directory(path))
+            except OSError:
+                pass
+    return paths
+
+
 def gpu_status() -> dict[str, Any]:
     """Best-effort CUDA diagnostics; no PyTorch installation required."""
+    enable_windows_cuda_wheels()
     result: dict[str, Any] = {
         "available": False,
         "name": None,
@@ -152,6 +195,7 @@ def transcribe_file(
             raise TranscriptionCancelled("ยกเลิกโดยผู้ใช้")
 
     check_cancel()
+    enable_windows_cuda_wheels()
     diagnostics = gpu_status() if device != "cpu" else {"available": False, "reason": "ใช้ CPU"}
     selected = "cuda" if device != "cpu" and diagnostics["available"] else "cpu"
     if device == "cuda" and selected != "cuda":
