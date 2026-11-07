@@ -1,0 +1,29 @@
+name: Docker smoke test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  docker-cpu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and start CPU container
+        run: docker compose up --build -d
+      - name: Check Web UI and API
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8765/ > /dev/null \
+              && curl --fail --silent http://127.0.0.1:8765/api/system > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose ps
+          docker compose logs
+          exit 1
+      - name: Shut down
+        if: always()
+        run: docker compose down
