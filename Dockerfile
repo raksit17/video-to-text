@@ -29,7 +29,8 @@ RUN if [ "$INSTALL_GPU" = "true" ]; then \
 COPY video_transcriber.py web_app.py ./
 COPY web/ ./web/
 
-RUN useradd --system --uid 10001 --create-home --home-dir /home/app app \
+RUN groupadd --system app \
+    && useradd --system --uid 10001 --gid app --create-home --home-dir /home/app app \
     && mkdir -p /app/.work "$HF_HOME" \
     && chown -R app:app /app/.work /home/app/.cache
 
