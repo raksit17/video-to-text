@@ -13,6 +13,74 @@ Local video/audio transcription using faster-whisper. Supports a browser interfa
 - Existing command-line usage continues to work.
 - No Node.js or separate FFmpeg executable required (PyAV handles decoding).
 
+## Docker (CPU by default, NVIDIA GPU optional)
+
+Docker runs the existing Python Web UI without a local Python installation.
+Install Docker Desktop (Windows/macOS) or Docker Engine + Compose (Linux).
+
+### CPU (works without NVIDIA GPU)
+
+```bash
+docker compose up --build -d
+```
+
+Visit **http://127.0.0.1:8765**. To view logs or stop the app:
+
+```bash
+docker compose logs -f transcriber
+docker compose down
+```
+
+The first transcription downloads its Whisper model (internet required). Named
+volumes `transcription-work` and `whisper-cache` retain completed output files
+and downloaded models between container rebuilds. As before, uploaded source
+media is deleted after processing. `docker compose down -v` **deletes the
+volumes and their saved transcripts/models**.
+
+### NVIDIA GPU (optional, Linux or Windows Docker Desktop + WSL2)
+
+Requires a working NVIDIA driver and GPU-enabled Docker runtime (on Linux,
+install/configure NVIDIA Container Toolkit). Build the CUDA-capable image and
+request one GPU:
+
+```bash
+docker compose -f compose.yaml -f compose.gpu.yaml up --build -d
+```
+
+Open the same URL. Check detection:
+
+```bash
+docker compose -f compose.yaml -f compose.gpu.yaml exec transcriber \
+  python video_transcriber.py --check-gpu
+```
+
+To stop:
+
+```bash
+docker compose -f compose.yaml -f compose.gpu.yaml down
+```
+
+The GPU image installs CUDA 12 cuBLAS and cuDNN 9 Linux libraries from Python
+wheels at build time, and uses the host's NVIDIA GPU driver via Docker.
+It is significantly larger than the CPU image and GPU compatibility is not
+guaranteed on every device/driver. Switch back to the CPU command if needed.
+Run `docker compose down` before switching modes; do not run both modes at
+once on port 8765.
+
+### Docker notes
+
+- The Compose port is bound to **127.0.0.1:8765 on the host** for local use.
+  The server itself listens on 0.0.0.0 inside the isolated container.
+- The Web UI is **not authenticated**; do not expose this port to the public
+  internet without a reverse proxy, authentication, and upload/storage limits.
+- The container runs as non-root (UID 10001); output is inside the
+  `transcription-work` named volume.
+- To inspect saved output files: `docker compose exec transcriber ls -la .work`.
+- For CLI use, mount your own media directory and run
+  `docker compose run --rm -v "${PWD}/media:/media:ro" transcriber python
+  video_transcriber.py /media/example.mp4 --device cpu --language th`
+  (adjust the bind path/quoting for your shell).
+
 ## Windows quick start (PowerShell)
 
 Open PowerShell in the repository folder:

@@ -1,0 +1,15 @@
+# Override the default CPU service with CUDA 12/cuDNN 9 pip libraries and GPU access.
+# Prerequisites: NVIDIA driver, Docker GPU support and NVIDIA Container Toolkit
+# (or Docker Desktop WSL2 GPU support on Windows).
+services:
+  transcriber:
+    build:
+      args:
+        INSTALL_GPU: "true"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
